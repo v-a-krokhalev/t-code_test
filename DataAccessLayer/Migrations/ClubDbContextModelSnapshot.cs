@@ -84,6 +84,26 @@ namespace DataAccessLayer.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("IdempotencyBodyHash")
+                        .HasColumnType("text")
+                        .HasColumnName("idempotency_body_hash");
+
+                    b.Property<string>("IdempotencyKeyHash")
+                        .HasColumnType("text")
+                        .HasColumnName("idempotency_key_hash");
+
+                    b.Property<string>("IdempotencyResponseJson")
+                        .HasColumnType("text")
+                        .HasColumnName("idempotency_response_json");
+
+                    b.Property<bool>("IsWaitlist")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_waitlist");
+
+                    b.Property<int>("RefundedVisits")
+                        .HasColumnType("integer")
+                        .HasColumnName("refunded_visits");
+
                     b.Property<int>("Seats")
                         .HasColumnType("integer")
                         .HasColumnName("seats");
@@ -97,11 +117,17 @@ namespace DataAccessLayer.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("user_id");
 
+                    b.Property<bool>("WaitlistLeft")
+                        .HasColumnType("boolean")
+                        .HasColumnName("waitlist_left");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClassId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "IdempotencyKeyHash")
+                        .IsUnique()
+                        .HasFilter("idempotency_key_hash IS NOT NULL");
 
                     b.ToTable("enrollments", (string)null);
                 });

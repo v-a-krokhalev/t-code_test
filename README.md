@@ -5,7 +5,7 @@
 ## Запуск
 
 ```
-docker compose up -d
+docker compose up -d --wait
 dotnet run --project WebApi
 ```
 
@@ -18,7 +18,7 @@ dotnet run --project WebApi
 
 ```
 docker compose down -v
-docker compose up -d
+docker compose up -d --wait
 ```
 
 ## Миграции

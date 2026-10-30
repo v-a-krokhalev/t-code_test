@@ -11,6 +11,7 @@ using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis;
 using WebApi.Auth;
 using WebApi.Middleware;
+using WebApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,12 +31,23 @@ builder.Services.AddDbContext<ClubDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IRateLimitService, RateLimitService>();
+builder.Services.AddSingleton<IIdempotencyService, IdempotencyService>();
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-    ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")!));
+{
+    var options = ConfigurationOptions.Parse(builder.Configuration.GetConnectionString("Redis")!);
+    // решение: разрешаем запуск хоста при временной недоступности Redis; cache и rate limiter применяют свои fallback-режимы.
+    options.AbortOnConnectFail = false;
+    return ConnectionMultiplexer.Connect(options);
+});
 
 builder.Services.AddSingleton<ICacheService>(provider =>
-    new RedisCacheService(provider.GetRequiredService<IConnectionMultiplexer>(), TimeSpan.FromMinutes(5)));
+    new RedisCacheService(
+        provider.GetRequiredService<IConnectionMultiplexer>(),
+        TimeSpan.FromMinutes(5),
+        provider.GetRequiredService<ILogger<RedisCacheService>>()));
 
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 

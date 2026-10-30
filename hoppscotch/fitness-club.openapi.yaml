@@ -1,0 +1,556 @@
+openapi: 3.0.3
+info:
+  title: Fitness Club API
+  version: 1.0.0
+  description: >-
+    Hoppscotch collection for the Fitness Club API. Import this OpenAPI file;
+    authenticate with POST /auth/login, then use its accessToken as the Bearer token.
+servers:
+  - url: http://localhost:5080
+    description: Local WebApi
+security:
+  - bearerAuth: []
+tags:
+  - name: Authentication
+  - name: Enrollments
+  - name: Schedule
+  - name: Analytics
+paths:
+  /auth/login:
+    post:
+      tags: [Authentication]
+      operationId: login
+      summary: Log in and obtain a JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: user001@club.test
+              password: Password123!
+      responses:
+        '200':
+          description: Login succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Invalid credentials
+
+  /enrollments:
+    post:
+      tags: [Enrollments]
+      operationId: createEnrollment
+      summary: Book seats in a class
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEnrollmentRequest'
+            example:
+              classId: 1
+              seats: 1
+      responses:
+        '201':
+          description: Enrollment created or idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateEnrollmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /enrollments/{id}/seats:
+    post:
+      tags: [Enrollments]
+      operationId: updateEnrollmentSeats
+      summary: Change the number of seats in a booking
+      parameters:
+        - $ref: '#/components/parameters/EnrollmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEnrollmentSeatsRequest'
+            example:
+              seats: 2
+      responses:
+        '200':
+          description: Enrollment updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentDetails'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /enrollments/{id}/cancel:
+    post:
+      tags: [Enrollments]
+      operationId: cancelEnrollment
+      summary: Cancel a booking
+      parameters:
+        - $ref: '#/components/parameters/EnrollmentId'
+      responses:
+        '200':
+          description: Enrollment cancelled or already cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelEnrollmentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /enrollments/{id}:
+    get:
+      tags: [Enrollments]
+      operationId: getEnrollment
+      summary: Get a booking with class and pass details
+      parameters:
+        - $ref: '#/components/parameters/EnrollmentId'
+      responses:
+        '200':
+          description: Enrollment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentDetails'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /schedule:
+    get:
+      tags: [Schedule]
+      operationId: getSchedule
+      summary: List classes in a time range
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Inclusive UTC start time (ISO 8601 date-time)
+          schema:
+            type: string
+            format: date-time
+          example: '2026-10-30T00:00:00Z'
+        - name: to
+          in: query
+          required: true
+          description: Exclusive UTC end time (ISO 8601 date-time)
+          schema:
+            type: string
+            format: date-time
+          example: '2026-11-06T00:00:00Z'
+        - name: roomId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: continuationToken
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Schedule page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /analytics/load:
+    get:
+      tags: [Analytics]
+      operationId: getRoomLoad
+      summary: Get room occupancy analytics (admin only)
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Inclusive UTC calendar date
+          schema:
+            type: string
+            format: date
+          example: '2026-10-30'
+        - name: to
+          in: query
+          required: true
+          description: Inclusive UTC calendar date
+          schema:
+            type: string
+            format: date
+          example: '2026-11-06'
+        - name: roomId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Load totals grouped by date and room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsLoadResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          description: Admin role required
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /enrollments/waitlist:
+    post:
+      tags: [Enrollments]
+      operationId: joinWaitlist
+      summary: Join the waitlist when the requested seats are unavailable
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEnrollmentRequest'
+            example:
+              classId: 1
+              seats: 1
+      responses:
+        '201':
+          description: Waitlist entry created or idempotent replay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /enrollments/waitlist/{id}/cancel:
+    post:
+      tags: [Enrollments]
+      operationId: leaveWaitlist
+      summary: Leave the waitlist
+      parameters:
+        - $ref: '#/components/parameters/WaitlistId'
+      responses:
+        '200':
+          description: Waitlist entry cancelled or already cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveWaitlistResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+      example: hoppscotch-booking-001
+    EnrollmentId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      example: 1
+    WaitlistId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      example: 1
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    Conflict:
+      description: Business rule conflict
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    RateLimited:
+      description: More than 60 requests in the current minute window
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      example:
+        email: user001@club.test
+        password: Password123!
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    CreateEnrollmentRequest:
+      type: object
+      required: [classId, seats]
+      properties:
+        classId:
+          type: integer
+          format: int64
+        seats:
+          type: integer
+          minimum: 1
+    UpdateEnrollmentSeatsRequest:
+      type: object
+      required: [seats]
+      properties:
+        seats:
+          type: integer
+          minimum: 1
+    CreateEnrollmentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        classId:
+          type: integer
+          format: int64
+        seats:
+          type: integer
+        status:
+          type: string
+          enum: [active]
+        createdAt:
+          type: string
+          format: date-time
+    CancelEnrollmentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [cancelled]
+        refundedVisits:
+          type: integer
+    EnrollmentDetails:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [active, cancelled]
+        seats:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        class:
+          $ref: '#/components/schemas/ClassDetails'
+        pass:
+          $ref: '#/components/schemas/PassDetails'
+    ClassDetails:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        isCancelled:
+          type: boolean
+        room:
+          $ref: '#/components/schemas/RoomDetails'
+    RoomDetails:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+    PassDetails:
+      type: object
+      properties:
+        remainingVisits:
+          type: integer
+        validUntil:
+          type: string
+          format: date
+    ScheduleResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleItem'
+        continuationToken:
+          type: string
+          nullable: true
+    ScheduleItem:
+      type: object
+      properties:
+        classId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+        room:
+          $ref: '#/components/schemas/RoomDetails'
+        capacity:
+          type: integer
+        freeSeats:
+          type: integer
+        mySeats:
+          type: integer
+    AnalyticsLoadResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AnalyticsLoadItem'
+    AnalyticsLoadItem:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        room:
+          $ref: '#/components/schemas/RoomDetails'
+        classesCount:
+          type: integer
+        totalCapacity:
+          type: integer
+        bookedSeats:
+          type: integer
+    WaitlistResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        classId:
+          type: integer
+          format: int64
+        seats:
+          type: integer
+        position:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    LeaveWaitlistResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [cancelled]
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        reason:
+          type: string

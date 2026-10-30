@@ -19,6 +19,17 @@ public class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollment>
         builder.Property(x => x.Status).HasColumnName("status").IsRequired();
         builder.Property(x => x.CreatedAt).HasColumnName("created_at").HasColumnType("timestamp with time zone");
         builder.Property(x => x.CancelledAt).HasColumnName("cancelled_at").HasColumnType("timestamp with time zone");
+        builder.Property(x => x.RefundedVisits).HasColumnName("refunded_visits");
+        builder.Property(x => x.IdempotencyKeyHash).HasColumnName("idempotency_key_hash");
+        builder.Property(x => x.IdempotencyBodyHash).HasColumnName("idempotency_body_hash");
+        builder.Property(x => x.IdempotencyResponseJson).HasColumnName("idempotency_response_json");
+        builder.Property(x => x.IsWaitlist).HasColumnName("is_waitlist");
+        builder.Property(x => x.WaitlistLeft).HasColumnName("waitlist_left");
+
+        builder
+            .HasIndex(x => new { x.UserId, x.IdempotencyKeyHash })
+            .IsUnique()
+            .HasFilter("idempotency_key_hash IS NOT NULL");
 
         builder
             .HasOne<User>()

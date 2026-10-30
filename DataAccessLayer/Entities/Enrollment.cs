@@ -18,5 +18,17 @@ public class Enrollment : IEntity
 
     public DateTime? CancelledAt { get; set; }
 
+    public int RefundedVisits { get; set; }
+
+    public string? IdempotencyKeyHash { get; set; }
+
+    public string? IdempotencyBodyHash { get; set; }
+
+    public string? IdempotencyResponseJson { get; set; }
+
+    public bool IsWaitlist { get; set; }
+
+    public bool WaitlistLeft { get; set; }
+
     public Class Class { get; set; } = null!;
 }
